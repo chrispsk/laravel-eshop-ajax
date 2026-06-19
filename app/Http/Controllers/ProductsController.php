@@ -32,13 +32,13 @@ class ProductsController extends Controller
         ###########################################
         //sending mail test
         
-        // $data = array('name'=>'Chris', 'content'=>'Ce plm?');
+        // $data = array('name'=>'Chris', 'content'=>'Ce?');
         // Mail::to('boom@gmail.com')->send(new TestMail($data));
         // echo("Email was sent!");
         
         //$when = now()->addMinutes(10);
-        //Mail::to('a@b.com')->queue(new TestMail("Ce plm?"));
-        //Mail::to('a@b.com')->later($when, new TestMail("Ce plm baaa?"));
+        //Mail::to('a@b.com')->queue(new TestMail("Ce?"));
+        //Mail::to('a@b.com')->later($when, new TestMail("Ce?"));
         // $data = array('name'=>"John Travolta", 'content'=>'Hello! How are you?');
         // Mail::send('mail', $data, function($message) {
         //     $message->to('abc@gmail.com')->subject('Laravel Basic Testing Mail');
@@ -138,8 +138,20 @@ class ProductsController extends Controller
     
 
     public function createNewOrder(Request $r) {
-        ######## COLLECT DATA ########
-        $cart = $r->session()->get('cart');
+        $r->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'address' => 'required|string|max:500',
+            'zip' => 'required|string|max:20',
+            'phone' => 'required|string|max:30',
+            'email' => 'required|email|max:255',
+        ]);
+
+       ######## COLLECT DATA ########
+       $cart = $r->session()->get('cart');
+       if (!$cart) {
+        return redirect("/");
+       }
         
        $first_name = $r->input('first_name');
        $address = $r->input('address');
@@ -181,8 +193,12 @@ class ProductsController extends Controller
 
 
             //send the email
-            $data = array('name'=>'Chris', 'content'=>'Ce plm?');
-            Mail::to($email)->send(new TestMail($data)); //$cart
+            $data = [
+                    'name' => $first_name,
+                    'content' => 'Thank you for your order. We have received your request and will process it shortly.',
+                        ];
+
+Mail::to($email)->send(new TestMail($data));
             
             //delete cart
             $r->session()->forget("cart");
@@ -263,9 +279,9 @@ class ProductsController extends Controller
     private function validate_payment($paypalPaymentID, $paypalPayerID){
 
         $paypalEnv       = 'sandbox'; // Or 'production'
-        $paypalURL       = 'https://api.sandbox.paypal.com/v1/'; //change this to paypal live url when you go live
-        $paypalClientID  = 'AfgbMSQrfT_b0yy3bEL4jAMJ70rtjEbmdkE8rRIp_WIRd7nuQD4h9fh2trI1xWi9WCGcDSDLAcGFLwqg';
-        $paypalSecret   = 'EOhUg1AntE4mXcdnhBLVsaed-B04a2CYOimIJ37V7-AhtYdJKiizgLFtWSQFuh74Dx27Xohy2Z9FZx7n';
+        $paypalURL = env('PAYPAL_API_URL', 'https://api.sandbox.paypal.com/v1/'); //change this to paypal live url when you go live
+        $paypalClientID = env('PAYPAL_CLIENT_ID');
+        $paypalSecret = env('PAYPAL_SECRET');
        
    
    
@@ -286,7 +302,7 @@ class ProductsController extends Controller
                $jsonData = json_decode($response);
                $curl = curl_init($paypalURL.'payments/payment/'.$paypalPaymentID);
                curl_setopt($curl, CURLOPT_POST, false);
-               curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+               curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true); //for GitHub/production set to true
                curl_setopt($curl, CURLOPT_HEADER, false);
                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
                curl_setopt($curl, CURLOPT_HTTPHEADER, array(
@@ -335,6 +351,9 @@ class ProductsController extends Controller
         $cart = new Cart($prevCart);
 
         $product = Product::find($id);
+        if (!$product) {
+            return back()->with('error', 'Product not found.');
+            }
         $cart->addItem($id, $product);
         $r->session()->put('cart', $cart);
 
